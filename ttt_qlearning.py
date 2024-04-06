@@ -25,7 +25,7 @@ class TicTacToe:
 
     def play_game(self):
         self.update_board_gui()  # Initial update
-        self.master.after(3000, self.play_next_move)  # Start the game loop
+        self.play_next_move()  # Start the game loop
 
     def play_next_move(self):
         if self.game_over:
@@ -95,7 +95,6 @@ class TicTacToe:
         else:
             # If the selected move is not available, choose another move randomly
             self.q_learning_move()
-
 
     def result(self, state, move):
         new_state = list(state)
