@@ -49,7 +49,7 @@ class TicTacToe:
             tkinter.messagebox.showinfo("Tic Tac Toe", "It's a tie!")
 
         self.current_player = 'O' if self.current_player == 'X' else 'X'  # Alternate players
-        self.master.after(1000, self.play_next_move)  # Schedule the next move
+        self.play_next_move()  # Schedule the next move
 
 
     def update_board_gui(self):
