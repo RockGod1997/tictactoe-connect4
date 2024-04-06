@@ -2,6 +2,9 @@ import tkinter as tk
 from tkinter import messagebox
 import numpy as np
 import random
+import csv
+import pickle
+import sys
 
 class Connect4:
     def __init__(self):
@@ -68,11 +71,15 @@ class Connect4:
             self.current_player = self.player1
 
 class Connect4GUI:
-    def __init__(self, master):
+    def __init__(self, master, q_table=None):
         self.master = master
         self.master.title("Connect4")
         self.connect4 = Connect4()
         self.buttons = []
+        self.q_table = q_table if q_table else {}
+        self.learning_rate = 0.1
+        self.discount_factor = 0.9
+        self.epsilon = 0.1  # Exploration rate
         self.create_board()
         self.play()
 
@@ -99,11 +106,17 @@ class Connect4GUI:
         if self.connect4.make_move(column):
             self.update_board()
             if self.connect4.check_winner(self.connect4.current_player):
-                messagebox.showinfo("Winner", f"Player {self.connect4.current_player} wins!")
+                self.update_q_values(reward=1)
+                print(f"Player {self.connect4.current_player} wins!")
+               # messagebox.showinfo("Winner", f"Player {self.connect4.current_player} wins!")
                 self.master.quit()
+               # self.master.destroy()
             elif self.connect4.is_board_full():
-                messagebox.showinfo("Draw", "It's a draw!")
+                self.update_q_values(reward=0)
+                print("It's a draw!")
+                #messagebox.showinfo("Draw", "It's a draw!")
                 self.master.quit()
+               # self.master.destroy()
             else:
                 self.connect4.switch_player()
                 self.play()
@@ -111,120 +124,61 @@ class Connect4GUI:
     def play(self):
         current_player = self.connect4.current_player
         if current_player == 1:
-            # Implement minimax for player 1
-            column = self.minimax(self.connect4.board, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)[0]
+            column = self.choose_action()
         else:
-            # Implement basic AI for player 2
             column = self.basic_ai()
         self.make_move(column)
 
-    def minimax(self, board, depth, alpha, beta, maximizing_player):
-        if depth == 0 or self.connect4.check_winner(self.connect4.player1) or self.connect4.check_winner(self.connect4.player2) or self.connect4.is_board_full():
-            return None, self.evaluate_board(board)
-
-        if maximizing_player:
-            max_eval = float('-inf')
-            best_column = None
-            for col in range(self.connect4.columns):
-                if self.is_valid_move(board, col):
-                    new_board = self.make_temp_move(board, col, self.connect4.player1)
-                    _, eval_score = self.minimax(new_board, depth - 1, alpha, beta, False)
-                    if eval_score > max_eval:
-                        max_eval = eval_score
-                        best_column = col
-                    alpha = max(alpha, eval_score)
-                    if beta <= alpha:
-                        break  # Beta cutoff
-            return best_column, max_eval
+    def choose_action(self):
+        if random.random() < self.epsilon:
+            # Randomly select action for exploration
+            return random.choice([col for col in range(self.connect4.columns) if self.is_valid_move(self.connect4.board, col)])
         else:
-            min_eval = float('inf')
-            best_column = None
-            for col in range(self.connect4.columns):
-                if self.is_valid_move(board, col):
-                    new_board = self.make_temp_move(board, col, self.connect4.player2)
-                    _, eval_score = self.minimax(new_board, depth - 1, alpha, beta, True)
-                    if eval_score < min_eval:
-                        min_eval = eval_score
-                        best_column = col
-                    beta = min(beta, eval_score)
-                    if beta <= alpha:
-                        break  # Alpha cutoff
-            return best_column, min_eval
+            # Choose action with highest Q-value
+            state = self.get_state_key(self.connect4.board)
+            q_values = self.q_table.get(state, np.zeros(self.connect4.columns))
+            return np.argmax(q_values)
 
-    def evaluate_board(self, board):
-        # Evaluation function for the current state of the board
-        score = 0
+    def get_state_key(self, board):
+        return str(board.flatten())
 
-        # Check rows for player 1
-        score += self.evaluate_line(board, self.connect4.player1)
+    def update_q_values(self, reward):
+        states = [self.get_state_key(self.connect4.board)]
+        actions = [self.connect4.moves[-1]]  # Latest action
 
-        # Check columns for player 1
-        score += self.evaluate_line(np.transpose(board), self.connect4.player1)
-
-        # Check diagonals for player 1
-        for i in range(-2, 4):
-            score += self.evaluate_line(np.diagonal(board, offset=i), self.connect4.player1)
-
-        # Check rows for player 2
-        score -= self.evaluate_line(board, self.connect4.player2)
-
-        # Check columns for player 2
-        score -= self.evaluate_line(np.transpose(board), self.connect4.player2)
-
-        # Check diagonals for player 2
-        for i in range(-2, 4):
-            score -= self.evaluate_line(np.diagonal(board, offset=i), self.connect4.player2)
-
-        return score
-
-    def evaluate_line(self, line, player):
-        score = 0
-        empty = 0
-        opp_player = self.connect4.player1 if player == self.connect4.player2 else self.connect4.player2
-
-        for i in range(len(line)):
-            if np.all(line[i] == player):
-                score += 1
-            elif np.all(line[i] == 0):
-                empty += 1
+        # Update Q-values backwards
+        for i in range(len(self.connect4.moves) - 2, -1, -1):
+            state = self.get_state_key(self.connect4.board)
+            states.append(state)
+            actions.append(self.connect4.moves[i])
+            if self.connect4.check_winner(self.connect4.current_player):
+                # Reward for winning
+                reward = 1
+            elif self.connect4.is_board_full():
+                # Reward for draw
+                reward = 0
             else:
-                empty = 0
-                break
-
-        if score == 4:
-            return 1000000
-        elif score == 3 and empty == 1:
-            return 100
-        elif score == 2 and empty == 2:
-            return 10
-        elif score == 1 and empty == 3:
-            return 1
-        else:
-            return 0
+                # Reward for intermediate steps (no reward)
+                reward = 0
+            # Q-value update
+            next_state = self.get_state_key(self.connect4.board)
+            q_values = self.q_table.get(state, np.zeros(self.connect4.columns))
+            next_q_values = self.q_table.get(next_state, np.zeros(self.connect4.columns))
+            q_values[actions[-1]] += self.learning_rate * (reward + self.discount_factor * np.max(next_q_values) - q_values[actions[-1]])
+            self.q_table[state] = q_values
 
     def is_valid_move(self, board, column):
         return board[0][column] == 0
 
-    def make_temp_move(self, board, column, player):
-        new_board = np.copy(board)
-        for row in range(self.connect4.rows - 1, -1, -1):
-            if new_board[row][column] == 0:
-                new_board[row][column] = player
-                break
-        return new_board
-
     def basic_ai(self):
-        # Check for winning moves
         for col in range(self.connect4.columns):
             if self.is_winning_move(col, self.connect4.player2):
                 return col
 
-        # Block opponent's winning moves
         for col in range(self.connect4.columns):
             if self.is_winning_move(col, self.connect4.player1):
                 return col
 
-        # Otherwise, select a random valid move
         return random.choice([col for col in range(self.connect4.columns) if self.is_valid_move(self.connect4.board, col)])
 
     def is_winning_move(self, column, player):
@@ -237,10 +191,44 @@ class Connect4GUI:
                 else:
                     return False
 
+def save_q_table(q_table, filename):
+    with open(filename, 'wb') as f:
+        pickle.dump(q_table, f)
+
+def load_q_table(filename):
+    try:
+        with open(filename, 'rb') as f:
+            return pickle.load(f)
+    except FileNotFoundError:
+        print("File not found. Returning empty Q-table.")
+        return {}
+
 def main():
-    root = tk.Tk()
-    gui = Connect4GUI(root)
-    root.mainloop()
+    if len(sys.argv) > 1 and sys.argv[1] == "load":
+        q_table = load_q_table('q_table.pkl')
+    else:
+        q_table = None
+
+    wins_player1 = 0
+    wins_player2 = 0
+
+    for _ in range(1):   #update to increase no. of games
+        root = tk.Tk()
+        gui = Connect4GUI(root, q_table)
+        root.mainloop()
+
+        if gui.connect4.check_winner(gui.connect4.player1):
+            wins_player1 += 1
+        elif gui.connect4.check_winner(gui.connect4.player2):
+            wins_player2 += 1
+
+    # Write results to CSV file
+    with open('results.csv', mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['Player 1 Wins', 'Player 2 Wins'])
+        writer.writerow([wins_player1, wins_player2])
+
+    save_q_table(gui.q_table, 'q_table.pkl')
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,8 @@
 import tkinter as tk
 import tkinter.messagebox
 import random
+import pickle
+import csv
 
 class TicTacToe:
     def __init__(self, master):
@@ -9,9 +11,23 @@ class TicTacToe:
         self.board = [' ']*9
         self.current_player = 'X'
         self.game_over = False
-        self.q_table = {}  # Q-table to store state-action values
+        self.x_wins = 0
+        self.o_wins = 0
+        self.q_table = self.load_q_table()  # Load Q-table from file
         self.create_board_gui()
-        self.play_game()
+        self.play_games(1)  # update for number of games
+
+    def load_q_table(self):
+        try:
+            with open('q_table.pickle', 'rb') as f:
+                print("pickle file loaded")
+                return pickle.load(f)
+        except FileNotFoundError:
+            return {}
+
+    def save_q_table(self):
+        with open('q_table.pickle', 'wb') as f:
+            pickle.dump(self.q_table, f)
 
     def create_board_gui(self):
         self.labels = []
@@ -23,9 +39,25 @@ class TicTacToe:
                 row_labels.append(label)
             self.labels.append(row_labels)
 
+    def play_games(self, num_games):
+        for _ in range(num_games):
+            self.play_game()
+            self.reset_game()
+
+        # Save the results to CSV
+        with open('qlearn.csv', 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Player X Wins', 'Player O Wins'])
+            writer.writerow([self.x_wins, self.o_wins])
+
     def play_game(self):
         self.update_board_gui()  # Initial update
         self.play_next_move()  # Start the game loop
+
+    def reset_game(self):
+        self.board = [' ']*9
+        self.game_over = False
+        self.current_player = 'X'
 
     def play_next_move(self):
         if self.game_over:
@@ -41,16 +73,14 @@ class TicTacToe:
         if self.check_winner():
             self.game_over = True
             if self.current_player == 'X':
-                tkinter.messagebox.showinfo("Tic Tac Toe", "Player X wins!")
+                self.x_wins += 1
             else:
-                tkinter.messagebox.showinfo("Tic Tac Toe", "Player O wins!")
+                self.o_wins += 1
         elif ' ' not in self.board:
             self.game_over = True
-            tkinter.messagebox.showinfo("Tic Tac Toe", "It's a tie!")
 
         self.current_player = 'O' if self.current_player == 'X' else 'X'  # Alternate players
         self.play_next_move()  # Schedule the next move
-
 
     def update_board_gui(self):
         for i in range(3):
@@ -66,7 +96,6 @@ class TicTacToe:
 
     def available_moves(self):
         return [i for i, mark in enumerate(self.board) if mark == ' ']
-
 
     def q_learning_move(self):
         state = ''.join(self.board)
@@ -87,6 +116,9 @@ class TicTacToe:
         if next_state not in self.q_table:
             self.q_table[next_state] = [0] * 9
         self.q_table[state][move] += 0.1 * (reward + 0.9 * max(self.q_table[next_state]) - self.q_table[state][move])
+
+        # Save Q-table after every move
+        self.save_q_table()
 
         # Check if the selected move is available
         if move in self.available_moves():
@@ -135,7 +167,6 @@ def main():
     root = tk.Tk()
     game = TicTacToe(root)
     root.mainloop()
-
 
 if __name__ == "__main__":
     main()

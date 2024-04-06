@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 import numpy as np
 import random
+import csv
 
 class Connect4:
     def __init__(self):
@@ -48,7 +49,7 @@ class Connect4:
         if self.game_over:
             return False
         
-        if column < 0 or column >= self.columns or self.board[0][column] != 0:
+        if column is None or column < 0 or column >= self.columns or self.board[0][column] != 0:
             return False
         
         row = self.rows - 1
@@ -73,10 +74,6 @@ class Connect4GUI:
         self.master.title("Connect4")
         self.connect4 = Connect4()
         self.buttons = []
-        self.q_table = {}  # Q-table for Q-learning
-        self.alpha = 0.1  # Learning rate
-        self.gamma = 0.9  # Discount factor
-        self.epsilon = 0.1  # Epsilon for exploration
         self.create_board()
         self.play()
 
@@ -115,37 +112,99 @@ class Connect4GUI:
     def play(self):
         current_player = self.connect4.current_player
         if current_player == 1:
-            # Player 1 uses Q-learning for making moves
-            column = self.q_learning()
+            column = self.minimax(self.connect4.board, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)[0]
         else:
-            # Player 2 uses a basic AI for making moves
             column = self.basic_ai()
         self.make_move(column)
 
-    def q_learning(self):
-        state = tuple(map(tuple, self.connect4.board))
-        if state not in self.q_table:
-            self.q_table[state] = np.zeros(self.connect4.columns)
+    def minimax(self, board, depth, alpha, beta, maximizing_player):
+        if depth == 0 or self.connect4.check_winner(self.connect4.player1) or self.connect4.check_winner(self.connect4.player2) or self.connect4.is_board_full():
+            return None, self.evaluate_board(board)
 
-        if random.random() < self.epsilon:
-            # Exploration: Choose a random action
-            return random.choice([col for col in range(self.connect4.columns) if self.is_valid_move(self.connect4.board, col)])
+        if maximizing_player:
+            max_eval = float('-inf')
+            best_column = None
+            for col in range(self.connect4.columns):
+                if self.is_valid_move(board, col):
+                    new_board = self.make_temp_move(board, col, self.connect4.player1)
+                    _, eval_score = self.minimax(new_board, depth - 1, alpha, beta, False)
+                    if eval_score > max_eval:
+                        max_eval = eval_score
+                        best_column = col
+                    alpha = max(alpha, eval_score)
+                    if beta <= alpha:
+                        break  # Beta cutoff
+            return best_column, max_eval
         else:
-            # Exploitation: Choose the action with the highest Q-value
-            return np.argmax(self.q_table[state])
+            min_eval = float('inf')
+            best_column = None
+            for col in range(self.connect4.columns):
+                if self.is_valid_move(board, col):
+                    new_board = self.make_temp_move(board, col, self.connect4.player2)
+                    _, eval_score = self.minimax(new_board, depth - 1, alpha, beta, True)
+                    if eval_score < min_eval:
+                        min_eval = eval_score
+                        best_column = col
+                    beta = min(beta, eval_score)
+                    if beta <= alpha:
+                        break  # Alpha cutoff
+            return best_column, min_eval
+
+    def evaluate_board(self, board):
+        score = 0
+        score += self.evaluate_line(board, self.connect4.player1)
+        score += self.evaluate_line(np.transpose(board), self.connect4.player1)
+        for i in range(-2, 4):
+            score += self.evaluate_line(np.diagonal(board, offset=i), self.connect4.player1)
+        score -= self.evaluate_line(board, self.connect4.player2)
+        score -= self.evaluate_line(np.transpose(board), self.connect4.player2)
+        for i in range(-2, 4):
+            score -= self.evaluate_line(np.diagonal(board, offset=i), self.connect4.player2)
+        return score
+
+    def evaluate_line(self, line, player):
+        score = 0
+        empty = 0
+        opp_player = self.connect4.player1 if player == self.connect4.player2 else self.connect4.player2
+
+        for i in range(len(line)):
+            if np.all(line[i] == player):
+                score += 1
+            elif np.all(line[i] == 0):
+                empty += 1
+            else:
+                empty = 0
+                break
+
+        if score == 4:
+            return 1000000
+        elif score == 3 and empty == 1:
+            return 100
+        elif score == 2 and empty == 2:
+            return 10
+        elif score == 1 and empty == 3:
+            return 1
+        else:
+            return 0
+
+    def is_valid_move(self, board, column):
+        return board[0][column] == 0
+
+    def make_temp_move(self, board, column, player):
+        new_board = np.copy(board)
+        for row in range(self.connect4.rows - 1, -1, -1):
+            if new_board[row][column] == 0:
+                new_board[row][column] = player
+                break
+        return new_board
 
     def basic_ai(self):
-        # Check for winning moves
         for col in range(self.connect4.columns):
             if self.is_winning_move(col, self.connect4.player2):
                 return col
-
-        # Block opponent's winning moves
         for col in range(self.connect4.columns):
             if self.is_winning_move(col, self.connect4.player1):
                 return col
-
-        # Otherwise, select a random valid move
         return random.choice([col for col in range(self.connect4.columns) if self.is_valid_move(self.connect4.board, col)])
 
     def is_winning_move(self, column, player):
@@ -158,13 +217,28 @@ class Connect4GUI:
                 else:
                     return False
 
-    def is_valid_move(self, board, column):
-        return board[0][column] == 0
-
 def main():
-    root = tk.Tk()
-    gui = Connect4GUI(root)
-    root.mainloop()
+    player1_wins = 0
+    player2_wins = 0
+
+    for _ in range(1):    #update for playing more games
+        
+        root = tk.Tk()
+        gui = Connect4GUI(root)
+        root.mainloop()
+
+        winner = gui.connect4.current_player
+        if winner == 1:
+            player1_wins += 1
+        elif winner == 2:
+            player2_wins += 1
+
+    with open("connect4_results.csv", "w", newline="") as csvfile:
+        fieldnames = ['Player 1 Wins', 'Player 2 Wins']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        writer.writeheader()
+        writer.writerow({'Player 1 Wins': player1_wins, 'Player 2 Wins': player2_wins})
 
 if __name__ == "__main__":
     main()

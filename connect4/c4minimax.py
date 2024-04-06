@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 import numpy as np
 import random
+import csv
 
 class Connect4:
     def __init__(self):
@@ -111,18 +112,11 @@ class Connect4GUI:
     def play(self):
         current_player = self.connect4.current_player
         if current_player == 1:
-            # Implement minimax for player 1
             column = self.minimax(self.connect4.board, depth=3, maximizing_player=True)[0]
-          # column=self.basic_ai()
         else:
-            # Implement basic AI for player 2
             column = self.basic_ai()
         self.make_move(column)
 
-
-   # def basic_ai(self):
-        # Implement basic AI
-    #    return random.choice([col for col in range(self.connect4.columns)])
     def minimax(self, board, depth, maximizing_player):
         if depth == 0 or self.connect4.check_winner(self.connect4.player1) or self.connect4.check_winner(self.connect4.player2) or self.connect4.is_board_full():
             return None, self.evaluate_board(board)
@@ -151,7 +145,6 @@ class Connect4GUI:
             return best_column, min_eval
 
     def evaluate_board(self, board):
-        # Evaluation function for the current state of the board
         score = 0
 
         # Check rows for player 1
@@ -211,18 +204,16 @@ class Connect4GUI:
                 new_board[row][column] = player
                 break
         return new_board
+
     def basic_ai(self):
-        # Check for winning moves
         for col in range(self.connect4.columns):
             if self.is_winning_move(col, self.connect4.player2):
                 return col
 
-        # Block opponent's winning moves
         for col in range(self.connect4.columns):
             if self.is_winning_move(col, self.connect4.player1):
                 return col
 
-        # Otherwise, select a random valid move
         return random.choice([col for col in range(self.connect4.columns) if self.is_valid_move(self.connect4.board, col)])
 
     def is_winning_move(self, column, player):
@@ -236,9 +227,24 @@ class Connect4GUI:
                     return False
 
 def main():
-    root = tk.Tk()
-    gui = Connect4GUI(root)
-    root.mainloop()
+    wins_player1 = 0
+    wins_player2 = 0
+
+    for _ in range(1):   #update to increase no. of games
+        root = tk.Tk()
+        gui = Connect4GUI(root)
+        root.mainloop()
+
+        if gui.connect4.check_winner(gui.connect4.player1):
+            wins_player1 += 1
+        elif gui.connect4.check_winner(gui.connect4.player2):
+            wins_player2 += 1
+
+    # Write results to CSV file
+    with open('results.csv', mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['Player 1 Wins', 'Player 2 Wins'])
+        writer.writerow([wins_player1, wins_player2])
 
 if __name__ == "__main__":
     main()
