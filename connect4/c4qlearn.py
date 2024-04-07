@@ -5,6 +5,7 @@ import random
 import csv
 import pickle
 import sys
+import time
 
 class Connect4:
     def __init__(self):
@@ -58,7 +59,7 @@ class Connect4:
         while row >= 0:
             if self.board[row][column] == 0:
                 self.board[row][column] = self.current_player
-                self.moves.append(column)
+                self.moves.append((column, time.time()))  # Record move and timestamp
                 return True
             row -= 1
         
@@ -80,6 +81,8 @@ class Connect4GUI:
         self.learning_rate = 0.1
         self.discount_factor = 0.9
         self.epsilon = 0.1  # Exploration rate
+        self.total_time = 0
+        self.move_count = 0
         self.create_board()
         self.play()
 
@@ -108,25 +111,27 @@ class Connect4GUI:
             if self.connect4.check_winner(self.connect4.current_player):
                 self.update_q_values(reward=1)
                 print(f"Player {self.connect4.current_player} wins!")
-               # messagebox.showinfo("Winner", f"Player {self.connect4.current_player} wins!")
                 self.master.quit()
-               # self.master.destroy()
             elif self.connect4.is_board_full():
                 self.update_q_values(reward=0)
                 print("It's a draw!")
-                #messagebox.showinfo("Draw", "It's a draw!")
                 self.master.quit()
-               # self.master.destroy()
             else:
                 self.connect4.switch_player()
                 self.play()
 
     def play(self):
         current_player = self.connect4.current_player
+
         if current_player == 1:
+            start_time = time.time()  # Measure start time
             column = self.choose_action()
+            end_time = time.time()  # Measure end time
+            self.total_time += end_time - start_time  # Add to total time
+            self.move_count += 1  # Increment move count
         else:
             column = self.basic_ai()
+
         self.make_move(column)
 
     def choose_action(self):
@@ -144,13 +149,13 @@ class Connect4GUI:
 
     def update_q_values(self, reward):
         states = [self.get_state_key(self.connect4.board)]
-        actions = [self.connect4.moves[-1]]  # Latest action
+        actions = [self.connect4.moves[-1][0]]  # Latest action
 
         # Update Q-values backwards
         for i in range(len(self.connect4.moves) - 2, -1, -1):
             state = self.get_state_key(self.connect4.board)
             states.append(state)
-            actions.append(self.connect4.moves[i])
+            actions.append(self.connect4.moves[i][0])
             if self.connect4.check_winner(self.connect4.current_player):
                 # Reward for winning
                 reward = 1
@@ -205,14 +210,14 @@ def load_q_table(filename):
 
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "load":
-        q_table = load_q_table('q_table.pkl')
+        q_table = load_q_table('q_table.pickle')
     else:
         q_table = None
 
     wins_player1 = 0
     wins_player2 = 0
 
-    for _ in range(1):   #update to increase no. of games
+    for _ in range(1):   # Update to increase the number of games
         root = tk.Tk()
         gui = Connect4GUI(root, q_table)
         root.mainloop()
@@ -221,14 +226,16 @@ def main():
             wins_player1 += 1
         elif gui.connect4.check_winner(gui.connect4.player2):
             wins_player2 += 1
-
+    
     # Write results to CSV file
     with open('results.csv', mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['Player 1 Wins', 'Player 2 Wins'])
+        writer.writerow(['Player 1 Wins', 'Player 2 Wins', 'Average Q-learning Move Runtime'])
         writer.writerow([wins_player1, wins_player2])
+    average_time = gui.total_time / gui.move_count
+    print(f"Average qlearning move runtime: {average_time:.6f} seconds")
 
-    save_q_table(gui.q_table, 'q_table.pkl')
+    save_q_table(gui.q_table, 'q_table.pickle')
 
 if __name__ == "__main__":
     main()

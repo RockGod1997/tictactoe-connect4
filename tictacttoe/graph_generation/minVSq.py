@@ -64,7 +64,7 @@ class TicTacToe:
         self.game_over = False
         self.update_board_gui()
 
-        if self.games_played == 1:
+        if self.games_played == 100: # update value for increasing no of games
             self.write_results_to_csv()
         else:
             self.play_game()

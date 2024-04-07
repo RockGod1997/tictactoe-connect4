@@ -1,3 +1,4 @@
+# for training the q learning model
 import tkinter as tk
 import tkinter.messagebox
 import random

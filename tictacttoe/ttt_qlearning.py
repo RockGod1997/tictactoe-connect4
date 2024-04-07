@@ -1,9 +1,10 @@
+#code for q learning tic tac toe game
 import tkinter as tk
 import tkinter.messagebox
 import random
 import pickle
 import csv
-
+import time
 class TicTacToe:
     def __init__(self, master):
         self.master = master
@@ -64,7 +65,13 @@ class TicTacToe:
             return
 
         if self.current_player == 'X':
+            start_time=time.time()
             self.q_learning_move()
+            end_time = time.time()  # End time after minimax calculation
+            # Calculate and store the average runtime for multiple calls
+            if not hasattr(self, 'minimax_times'):
+                self.qlearning_times = []
+            self.qlearning_times.append(end_time - start_time)
         else:
             self.select_move_for_O()
 
@@ -166,6 +173,8 @@ class TicTacToe:
 def main():
     root = tk.Tk()
     game = TicTacToe(root)
+    average_qlearning_time = sum(game.qlearning_times) / len(game.qlearning_times)
+    print(f"Average Q learning Runtime: {average_qlearning_time:.4f} seconds")
     root.mainloop()
 
 if __name__ == "__main__":

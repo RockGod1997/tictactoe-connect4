@@ -1,8 +1,8 @@
-
+# code for minimax with alpha beta pruning
 import tkinter as tk
 import tkinter.messagebox
 import random
-
+import time
 class TicTacToe:
     def __init__(self, master):
         self.master = master
@@ -60,6 +60,7 @@ class TicTacToe:
         return [i for i, mark in enumerate(self.board) if mark == ' ']
 
     def minimax_move(self):
+        start_time = time.time()
         best_score = -float('inf')
         best_move = None
         for move in self.available_moves():
@@ -69,6 +70,11 @@ class TicTacToe:
             if score > best_score:
                 best_score = score
                 best_move = move
+        end_time = time.time()  # End time after minimax calculation
+        # Calculate and store the average runtime for multiple calls
+        if not hasattr(self, 'minimax_times'):
+            self.minimax_times = []
+        self.minimax_times.append(end_time - start_time)
         self.board[best_move] = 'X'
 
     def minimax(self, board, is_maximizing, alpha=-float('inf'), beta=float('inf')):
@@ -129,6 +135,8 @@ class TicTacToe:
 def main():
     root = tk.Tk()
     game = TicTacToe(root)
+    average_minimax_time = sum(game.minimax_times) / len(game.minimax_times)
+    print(f"Average Minimax with Alpha Beta Runtime: {average_minimax_time:.4f} seconds")
     root.mainloop()
 
 

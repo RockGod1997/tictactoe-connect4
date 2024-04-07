@@ -3,7 +3,7 @@ from tkinter import messagebox
 import numpy as np
 import random
 import csv
-
+import time
 class Connect4:
     def __init__(self):
         self.rows = 6
@@ -74,6 +74,8 @@ class Connect4GUI:
         self.master.title("Connect4")
         self.connect4 = Connect4()
         self.buttons = []
+        self.total_time = 0
+        self.move_count = 0
         self.create_board()
         self.play()
 
@@ -112,7 +114,11 @@ class Connect4GUI:
     def play(self):
         current_player = self.connect4.current_player
         if current_player == 1:
+            start_time = time.time()  # Measure start time
             column = self.minimax(self.connect4.board, depth=3, maximizing_player=True)[0]
+            end_time = time.time()  # Measure end time
+            self.total_time += end_time - start_time  # Add to total time
+            self.move_count += 1  # Increment move count
         else:
             column = self.basic_ai()
         self.make_move(column)
@@ -245,6 +251,8 @@ def main():
         writer = csv.writer(file)
         writer.writerow(['Player 1 Wins', 'Player 2 Wins'])
         writer.writerow([wins_player1, wins_player2])
+    average_time = gui.total_time / gui.move_count
+    print(f"Average minimax move runtime: {average_time:.6f} seconds")
 
 if __name__ == "__main__":
     main()
