@@ -1,3 +1,4 @@
+#code for minimax w alpha beta vs basic ai
 import tkinter as tk
 from tkinter import messagebox
 import numpy as np

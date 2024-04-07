@@ -1,3 +1,4 @@
+#minimax vs basic code
 import tkinter as tk
 import tkinter.messagebox
 import random
